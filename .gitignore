@@ -1,0 +1,33 @@
+# Local experiments and generated output
+/analysis/
+/release/
+/test-results/
+/.matlab_prefs_test/
+*.mltbx
+*.mat
+*.pdi
+*.mp4
+*.fig
+
+# Experiment-specific reports (keep development documentation)
+/docs/后爪实验截面1_文件核查.md
+/docs/hindpaw_section1_file_audit.csv
+/docs/hindpaw_first_frame.png
+
+# MATLAB and editor state
+*.asv
+*.m~
+*.autosave
+*.mlsettings
+*.log
+/slprj/
+/.env
+/.env.*
+/.vscode/
+
+# macOS and Windows metadata
+.DS_Store
+._*
+__MACOSX/
+Thumbs.db
+Desktop.ini

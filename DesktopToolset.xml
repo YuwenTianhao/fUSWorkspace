@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<toolset id="user_apps_toolset" template="false">
+    <tool app_file_path="app/fUSWorkspaceMatlabApp.m"
+          handler_class="com.mathworks.deployment.desktop.toolstrip.ToolboxToolSetExtensionHandler"
+          id="b2d1c2a4-7f17-4d76-bda2-20260820f001:fUSWorkspaceMatlabApp.m"
+          label="fUS Workspace"
+          quick_access_eligible="false"
+          toolset_id="user_apps_toolset">
+        <callback>fUSWorkspaceMatlabApp</callback>
+        <summary>fUS浏览、多边形ROI CBV分析与MP4导出</summary>
+        <description>浏览fUS图像、计算多ROI时间曲线、管理实验阶段并导出视频。</description>
+        <icon path="./assets/icons" filename="fUSWorkspace_AppIcon_24.png"/>
+        <icon path="./assets/icons" filename="fUSWorkspace_AppIcon_16.png"/>
+        <parent_tool id="my_apps" toolset_id="apps_toolset"/>
+    </tool>
+</toolset>
