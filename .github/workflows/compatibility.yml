@@ -1,0 +1,109 @@
+name: MATLAB compatibility
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: compatibility-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  license-check:
+    name: Check CI license configuration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require a MATLAB token for private repositories
+        env:
+          PRIVATE_REPOSITORY: ${{ github.event.repository.private }}
+          MLM_LICENSE_TOKEN: ${{ secrets.MLM_LICENSE_TOKEN }}
+        shell: bash
+        run: |
+          if [[ "$PRIVATE_REPOSITORY" == "true" && -z "$MLM_LICENSE_TOKEN" ]]; then
+            echo "::error::Add the MLM_LICENSE_TOKEN repository secret for MATLAB CI in this private repository. See docs/GitHub与双平台开发.md."
+            exit 1
+          fi
+
+  test:
+    name: ${{ matrix.platform }} / ${{ matrix.release }}
+    needs: license-check
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: Windows
+            runner: windows-latest
+            release: R2025a
+          - platform: Windows
+            runner: windows-latest
+            release: R2026a
+          - platform: macOS-AppleSilicon
+            runner: macos-15
+            release: R2025a
+          - platform: macOS-AppleSilicon
+            runner: macos-15
+            release: R2026a
+          - platform: macOS-Intel
+            runner: macos-15-intel
+            release: R2025a
+          - platform: macOS-Intel
+            runner: macos-15-intel
+            release: R2025b
+    runs-on: ${{ matrix.runner }}
+    env:
+      MLM_LICENSE_TOKEN: ${{ secrets.MLM_LICENSE_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up Java for Apple Silicon MATLAB
+        if: matrix.platform == 'macOS-AppleSilicon'
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Select Apple Silicon Java runtime
+        if: matrix.platform == 'macOS-AppleSilicon'
+        shell: bash
+        run: echo "MATLAB_JAVA=$JAVA_HOME" >> "$GITHUB_ENV"
+      - name: Set up MATLAB and required toolboxes
+        uses: matlab-actions/setup-matlab@v3
+        with:
+          release: ${{ matrix.release }}
+          products: Image_Processing_Toolbox Computer_Vision_Toolbox
+      - name: Test and build the App
+        uses: matlab-actions/run-command@v3
+        with:
+          command: addpath('build'); ci_validate
+      - name: Upload environment report and test log
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: reports-${{ matrix.platform }}-${{ matrix.release }}
+          path: test-results/
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Upload the tested installation package
+        uses: actions/upload-artifact@v6
+        with:
+          name: package-${{ matrix.platform }}-${{ matrix.release }}
+          path: release/*.mltbx
+          if-no-files-found: error
+          retention-days: 14
+
+  compatibility:
+    name: All supported platforms passed
+    if: always()
+    needs: [license-check, test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every platform test to pass
+        env:
+          LICENSE_RESULT: ${{ needs.license-check.result }}
+          TEST_RESULT: ${{ needs.test.result }}
+        shell: bash
+        run: |
+          [[ "$LICENSE_RESULT" == "success" && "$TEST_RESULT" == "success" ]]
