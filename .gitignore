@@ -4,8 +4,9 @@
 /test-results/
 /.matlab_prefs_test/
 *.mltbx
-# Keep the published installer in source downloads as well as GitHub Releases.
+# Keep the published installer and the local icon update with the source.
 !/release/fUSWorkspace_1.5.2.mltbx
+!/release/fUSWorkspace_1.5.3.mltbx
 *.mat
 *.pdi
 *.mp4

@@ -1,14 +1,14 @@
 # fUS Workspace MATLAB 开发源码
 
-**直接安装：** [下载 fUS Workspace 1.5.2（Mac / Windows）](https://github.com/YuwenTianhao/fUSWorkspace/raw/refs/heads/main/release/fUSWorkspace_1.5.2.mltbx) · [查看 Release 说明与附件](https://github.com/YuwenTianhao/fUSWorkspace/releases/tag/v1.5.2)
+**当前本地安装包：** [fUS Workspace 1.5.3（Mac / Windows）](release/fUSWorkspace_1.5.3.mltbx)。已发布的上一版：[下载 1.5.2](https://github.com/YuwenTianhao/fUSWorkspace/raw/refs/heads/main/release/fUSWorkspace_1.5.2.mltbx) · [1.5.2 Release 说明与附件](https://github.com/YuwenTianhao/fUSWorkspace/releases/tag/v1.5.2)。
 
-本仓库为私有仓库，下载前请先登录有访问权限的 GitHub 账号。安装包也保存在源码的 `release/fUSWorkspace_1.5.2.mltbx`，使用 Code → Download ZIP 下载整个仓库时会一起获得。下载后在 MATLAB 中打开 `.mltbx` 安装，再从 Apps 页面启动。
+本仓库为私有仓库，下载前请先登录有访问权限的 GitHub 账号。当前本地安装包保存在源码的 `release/fUSWorkspace_1.5.3.mltbx`；本次更新尚未上传或发布到 GitHub。下载后在 MATLAB 中打开 `.mltbx` 安装，再从 Apps 页面启动。
 
-这是 fUS Workspace 1.5.2 的可继续开发版本。界面、数据读取、CBV算法、实验计划和画面渲染已经分层，不绑定任何一次实验的绝对路径。1.5.2 修复实验计划时间窗在曲线重绘时叠加以及缩放定尺度错误。
+这是 fUS Workspace 1.5.3 的可继续开发版本。界面、数据读取、CBV算法、实验计划和画面渲染已经分层，不绑定任何一次实验的绝对路径。1.5.2 修复实验计划时间窗在曲线重绘时叠加以及缩放定尺度错误；1.5.3 更新MATLAB Apps风格图标，去除蓝色圆框外的白色背景，保持1.5.2的分析功能。
 
 ## macOS图标与窗口行为
 
-- 安装包附带自定义图标；MATLAB Apps 工具栏是否采用此图标取决于 MATLAB 版本的 App Gallery 支持。
+- 安装包附带新版蓝色脑形、红橙色反应区和接收端图标；蓝色圆框外为透明区域，无白色外框。MATLAB Apps 工具栏是否采用此图标取决于 MATLAB 版本的 App Gallery 支持。
 - App窗口使用同一套图标；再次从Apps页面启动时，不重复创建窗口，而是恢复已有窗口并置前。
 - macOS程序坞中的`MATLABWindow Helper`属于MATLAB的窗口宿主，不属于本项目。MATLAB App源码不能替换它的程序坞身份，也不能接收它的“重新打开”事件。不要修改MATLAB安装目录中的Helper应用，否则会破坏签名并在MATLAB升级后失效。
 - 如果发布目标要求独立的程序坞图标、应用名称和点击置前行为，应另行构建独立macOS应用；本项目当前保持为MATLAB Apps页应用。
@@ -57,13 +57,16 @@ fUSWorkspaceMATLABSource/
 ├── docs/                             源码导航和开发指南
 ├── examples/                         实验计划CSV示例
 ├── build/                            工具箱打包脚本
-├── release/                          正式安装包（1.5.2随源码一起提供）
+├── assets/icons/                     图标母版、各尺寸导出与设计说明
+├── release/                          安装包（当前本地版1.5.3）
 ├── resources/project/                MATLAB Project自动维护的元数据
 ├── fUSWorkspaceMATLABSource.prj      MATLAB Project入口
 └── run_fUSWorkspace.m                开发启动脚本
 ```
 
-`resources/project` 中的 XML 不是业务代码，但它们用于 MATLAB Project 的文件、路径和项目状态管理，因此保留并且不应手工修改。`release` 中的 MLTBX 可以通过 `build/build_mltbx.m` 重新生成。当前正式包 `fUSWorkspace_1.5.2.mltbx` 同时纳入 Git，并作为 GitHub Release 附件提供；其它构建产物继续忽略。
+`resources/project` 中的 XML 不是业务代码，但它们用于 MATLAB Project 的文件、路径和项目状态管理，因此保留并且不应手工修改。`release` 中的 MLTBX 可以通过 `build/build_mltbx.m` 重新生成。已发布的 `fUSWorkspace_1.5.2.mltbx` 保留；本地更新包 `fUSWorkspace_1.5.3.mltbx` 同样允许纳入 Git，便于随源码提供。其它构建产物继续忽略。
+
+图标的唯一母版在 `assets/icons/fUSWorkspace_AppIcon_master.png`。同目录16、24、128和256像素图标均由母版缩放；打包脚本会同步更新 `app/assets/icons` 与 `resources/assets/icons` 中的Apps注册用副本。
 
 ## 算法入口
 

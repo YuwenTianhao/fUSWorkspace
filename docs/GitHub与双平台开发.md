@@ -20,7 +20,7 @@ git push -u origin setup/cross-platform-review
 
 项目已初始化 Git，不用再执行 `git init`。首次推送如弹出 Git Credential Manager 登录界面，登录你拥有此仓库的 GitHub 账号。不要把密码或访问令牌写入仓库地址或源文件。若已有 `origin`，先用 `git remote -v` 核对地址。
 
-`.gitignore` 排除了 analysis、临时构建产物、实验数据、输出视频、MATLAB 本地设置和 macOS 临时文件。正式安装包 `release/fUSWorkspace_1.5.2.mltbx` 有明确例外，同时纳入 Git，因此下载源码 ZIP 会包含可安装的 App。通用源码、图标、实验计划示例和 MATLAB Project 元数据也受版本管理。scripts 中保留了既有的实验辅助脚本，其中一些含本机数据路径，不属于 App 的自动检查入口。
+`.gitignore` 排除了 analysis、临时构建产物、实验数据、输出视频、MATLAB 本地设置和 macOS 临时文件。已发布安装包 `release/fUSWorkspace_1.5.2.mltbx` 和本地图标更新包 `release/fUSWorkspace_1.5.3.mltbx` 有明确例外，可以随源码提交；1.5.3尚未上传或发布到GitHub。通用源码、图标、实验计划示例和 MATLAB Project 元数据也受版本管理。scripts 中保留了既有的实验辅助脚本，其中一些含本机数据路径，不属于 App 的自动检查入口。
 
 ## 2. 私有仓库的 MATLAB 云端许可
 
