@@ -1,5 +1,9 @@
 # fUS Workspace MATLAB 开发源码
 
+**直接安装：** [下载 fUS Workspace 1.5.2（Mac / Windows）](https://github.com/YuwenTianhao/fUSWorkspace/raw/refs/heads/main/release/fUSWorkspace_1.5.2.mltbx) · [查看 Release 说明与附件](https://github.com/YuwenTianhao/fUSWorkspace/releases/tag/v1.5.2)
+
+本仓库为私有仓库，下载前请先登录有访问权限的 GitHub 账号。安装包也保存在源码的 `release/fUSWorkspace_1.5.2.mltbx`，使用 Code → Download ZIP 下载整个仓库时会一起获得。下载后在 MATLAB 中打开 `.mltbx` 安装，再从 Apps 页面启动。
+
 这是 fUS Workspace 1.5.2 的可继续开发版本。界面、数据读取、CBV算法、实验计划和画面渲染已经分层，不绑定任何一次实验的绝对路径。1.5.2 修复实验计划时间窗在曲线重绘时叠加以及缩放定尺度错误。
 
 ## macOS图标与窗口行为
@@ -53,13 +57,13 @@ fUSWorkspaceMATLABSource/
 ├── docs/                             源码导航和开发指南
 ├── examples/                         实验计划CSV示例
 ├── build/                            工具箱打包脚本
-├── release/                          生成的开发版MLTBX
+├── release/                          正式安装包（1.5.2随源码一起提供）
 ├── resources/project/                MATLAB Project自动维护的元数据
 ├── fUSWorkspaceMATLABSource.prj      MATLAB Project入口
 └── run_fUSWorkspace.m                开发启动脚本
 ```
 
-`resources/project` 中的 XML 不是业务代码，但它们用于 MATLAB Project 的文件、路径和项目状态管理，因此保留并且不应手工修改。`release` 中的 MLTBX 是构建产物，可以通过 `build/build_mltbx.m` 重新生成。
+`resources/project` 中的 XML 不是业务代码，但它们用于 MATLAB Project 的文件、路径和项目状态管理，因此保留并且不应手工修改。`release` 中的 MLTBX 可以通过 `build/build_mltbx.m` 重新生成。当前正式包 `fUSWorkspace_1.5.2.mltbx` 同时纳入 Git，并作为 GitHub Release 附件提供；其它构建产物继续忽略。
 
 ## 算法入口
 

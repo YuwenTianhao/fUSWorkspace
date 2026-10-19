@@ -1,9 +1,11 @@
 # Local experiments and generated output
 /analysis/
-/release/
+/release/*
 /test-results/
 /.matlab_prefs_test/
 *.mltbx
+# Keep the published installer in source downloads as well as GitHub Releases.
+!/release/fUSWorkspace_1.5.2.mltbx
 *.mat
 *.pdi
 *.mp4

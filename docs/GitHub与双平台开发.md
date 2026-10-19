@@ -20,7 +20,7 @@ git push -u origin setup/cross-platform-review
 
 项目已初始化 Git，不用再执行 `git init`。首次推送如弹出 Git Credential Manager 登录界面，登录你拥有此仓库的 GitHub 账号。不要把密码或访问令牌写入仓库地址或源文件。若已有 `origin`，先用 `git remote -v` 核对地址。
 
-`.gitignore` 排除了 analysis、release、实验数据、输出视频、MATLAB 本地设置和 macOS 临时文件。通用源码、图标、实验计划示例和 MATLAB Project 元数据受版本管理。scripts 中保留了既有的实验辅助脚本，其中一些含本机数据路径，不属于 App 的自动检查入口。
+`.gitignore` 排除了 analysis、临时构建产物、实验数据、输出视频、MATLAB 本地设置和 macOS 临时文件。正式安装包 `release/fUSWorkspace_1.5.2.mltbx` 有明确例外，同时纳入 Git，因此下载源码 ZIP 会包含可安装的 App。通用源码、图标、实验计划示例和 MATLAB Project 元数据也受版本管理。scripts 中保留了既有的实验辅助脚本，其中一些含本机数据路径，不属于 App 的自动检查入口。
 
 ## 2. 私有仓库的 MATLAB 云端许可
 
@@ -111,3 +111,5 @@ git push origin v1.5.3
 标签触发新的检查；CI 会拒绝与 VERSION 不一致的标签。全部检查通过后，在 GitHub Releases 中选择该标签，上传 Windows / R2025a 检查生成的 `.mltbx` 作为统一安装包，并附上两端验收结果。使用最低支持版本构建统一包，方便验证旧版 MATLAB 的安装兼容性。Mac 和 Windows 使用同一发布版本。工作流提供测试和打包，Release 由所有者发布。
 
 Git 同步以提交和推送为单位；不会同步未保存的编辑内容，也不会自动替换正在运行的 App。
+
+正式发布后，同时将选定安装包放进 `release/`，在 `.gitignore` 中为该文件添加例外，并提交到 main。发布说明和同一安装包仍保留在 GitHub Releases；这样既可单独下载 App，也可随源码 ZIP 一起下载。
