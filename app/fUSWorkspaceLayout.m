@@ -1,12 +1,22 @@
 classdef fUSWorkspaceLayout < handle
-    %FUSWORKSPACELAYOUT 只负责创建和排列 App 的界面组件。
-    %
-    % 这里没有数据读取或 CBV 算法。调整窗口布局、控件文字和默认显示值
-    % 时修改本文件；算法参数的语义与计算仍由 core/+fus 管理。
+    %FUSWORKSPACELAYOUT 图像为主、曲线在下、实验设置收纳在侧栏。
+    % 这里只定义界面，不读取数据或计算CBV。
 
     properties (SetAccess = private)
         UIFigure
         MainGrid
+        BodyGrid
+        SettingsPanel
+        ComparisonGrid
+        ViewModeDropDown
+        SectionListBox
+        CrossROITable
+        ShowAllSectionsCheckBox
+        ComparisonTab
+        ExportStyleDropDown
+        ImageToolDropDown
+        ROILabelsCheckBox
+        ImageFocusButton
         TabGroup
         BrowserTab
         CBVTab
@@ -20,6 +30,8 @@ classdef fUSWorkspaceLayout < handle
         ROICurveAxes
         DataFolderLabel
         ResultFolderLabel
+        SectionDropDown
+        ExperimentStatusLabel
         StatusLabel
         UnitLabel
         TimelineSlider
@@ -62,8 +74,7 @@ classdef fUSWorkspaceLayout < handle
     end
 
     methods
-        function layout = fUSWorkspaceLayout( ...
-                callbacks, bookmarks, experimentPlan, iconFile)
+        function layout = fUSWorkspaceLayout(callbacks, bookmarks, experimentPlan, iconFile)
             layout.Callbacks = callbacks;
             layout.Bookmarks = bookmarks;
             layout.ExperimentPlan = experimentPlan;
@@ -71,392 +82,496 @@ classdef fUSWorkspaceLayout < handle
             layout.buildUI();
         end
 
-        function components = components(layout)
-            names = [ ...
-                "UIFigure", "MainGrid", "TabGroup", "BrowserTab", "CBVTab", ...
-                "ExperimentTab", "ImagePanel", "BrowserAxes", "CBVAxes", ...
-                "CBVColorBar", "ROIStatusLabel", "ROITable", "ROICurveAxes", ...
-                "DataFolderLabel", "ResultFolderLabel", ...
-                "StatusLabel", "UnitLabel", "TimelineSlider", "FrameLabel", ...
-                "PlayButton", "ActualFPSField", "PlaybackFPSField", ...
-                "BrowserColormapDropDown", "TimestampCheckBox", ...
-                "ShowPhaseCheckBox", "WidthField", "HeightField", ...
-                "LockRatioCheckBox", "BookmarkTable", "ExperimentPlanTable", ...
-                "PhaseLabel", "BaselineStartField", "BaselineEndField", ...
-                "SpatialAverageField", "TemporalAverageField", ...
-                "ConversionDropDown", "DynamicRangeField", "Log10ScaleField", ...
-                "MinimumBaselineField", "LowThresholdField", ...
-                "HighThresholdField", "TransparencySlider", ...
-                "ShowBackgroundCheckBox", "BrainMaskCheckBox", ...
-                "ComputeBaselineButton", "SaveCBVButton", ...
-                "ExportCBVVideoButton"];
-            components = struct();
+        function result = components(layout)
+            names = string(properties(layout));
+            result = struct();
             for index = 1:numel(names)
-                components.(names(index)) = layout.(names(index));
+                result.(names(index)) = layout.(names(index));
             end
         end
     end
 
     methods (Access = private)
         function buildUI(layout)
-            layout.UIFigure = uifigure( ...
-                Name="fUS统一工作区：浏览、CBV处理与结果共享", ...
-                Position=[45, 45, 1500, 900], Color=[0.96, 0.97, 0.98]);
+            layout.UIFigure = uifigure(Name="fUS Workspace · 实验分析", ...
+                Position=[40, 40, 1600, 960], Color=[0.95, 0.96, 0.97]);
+            if isprop(layout.UIFigure, "Theme")
+                layout.UIFigure.Theme = "light";
+            end
             if strlength(layout.IconFile) > 0 && isfile(layout.IconFile)
                 layout.UIFigure.Icon = layout.IconFile;
             end
+            layout.buildMenus();
             layout.MainGrid = uigridlayout(layout.UIFigure, [3, 1]);
-            layout.MainGrid.RowHeight = {72, "1x", 108};
-            layout.MainGrid.Padding = [12, 12, 12, 12];
-            layout.MainGrid.RowSpacing = 10;
-
-            layout.buildTopBar();
-            layout.buildTabs();
+            layout.MainGrid.RowHeight = {38, "1x", 66};
+            layout.MainGrid.Padding = [10, 8, 10, 8];
+            layout.MainGrid.RowSpacing = 8;
+            layout.MainGrid.BackgroundColor = [0.95, 0.96, 0.97];
+            layout.buildToolbar();
+            layout.buildWorkspace();
             layout.buildTimeline();
         end
 
-        function buildTopBar(layout)
-            grid = uigridlayout(layout.MainGrid, [2, 8]);
-            grid.Layout.Row = 1;
-            grid.RowHeight = {30, 28};
-            grid.ColumnWidth = {125, "1x", 125, "1x", 110, 110, 145, 260};
-            grid.Padding = [0, 0, 0, 0];
-
-            chooseData = uibutton(grid, Text="选择数据文件夹", ...
-                ButtonPushedFcn=@(~, ~)layout.Callbacks.chooseDataFolder());
-            chooseData.Layout.Row = [1, 2];
-            chooseData.Layout.Column = 1;
-            layout.DataFolderLabel = uilabel(grid, Text="尚未载入数据", FontWeight="bold");
-            layout.DataFolderLabel.Layout.Row = 1;
-            layout.DataFolderLabel.Layout.Column = 2;
-            layout.UnitLabel = uilabel(grid, Text="CBV单位：Δlog灰度（不是CBV%）", ...
-                FontColor=[0.68, 0.26, 0.08]);
-            layout.UnitLabel.Layout.Row = 2;
-            layout.UnitLabel.Layout.Column = 2;
-
-            chooseResult = uibutton(grid, Text="选择结果文件夹", ...
-                ButtonPushedFcn=@(~, ~)layout.Callbacks.chooseResultFolder());
-            chooseResult.Layout.Row = [1, 2];
-            chooseResult.Layout.Column = 3;
-            layout.ResultFolderLabel = uilabel(grid, Text="结果文件夹未设置");
-            layout.ResultFolderLabel.Layout.Row = [1, 2];
-            layout.ResultFolderLabel.Layout.Column = 4;
-
-            saveWorkspaceButton = uibutton(grid, Text="保存工作区", ...
-                ButtonPushedFcn=@(~, ~)layout.Callbacks.saveWorkspace());
-            saveWorkspaceButton.Layout.Row = [1, 2];
-            saveWorkspaceButton.Layout.Column = 5;
-            loadWorkspaceButton = uibutton(grid, Text="载入工作区", ...
-                ButtonPushedFcn=@(~, ~)layout.Callbacks.loadWorkspace());
-            loadWorkspaceButton.Layout.Row = [1, 2];
-            loadWorkspaceButton.Layout.Column = 6;
-
-            layout.StatusLabel = uilabel(grid, Text="请选择数据文件夹", ...
-                FontColor=[0.30, 0.34, 0.38]);
-            layout.StatusLabel.Layout.Row = [1, 2];
-            layout.StatusLabel.Layout.Column = [7, 8];
+        function buildMenus(layout)
+            fileMenu = uimenu(layout.UIFigure, Text="实验与项目");
+            uimenu(fileMenu, Text="选择实验根目录…", ...
+                MenuSelectedFcn=@(~, ~)layout.Callbacks.chooseExperimentFolder());
+            uimenu(fileMenu, Text="选择单个数据文件夹…", ...
+                MenuSelectedFcn=@(~, ~)layout.Callbacks.chooseDataFolder());
+            uimenu(fileMenu, Text="打开项目或旧工作区…", Separator="on", ...
+                MenuSelectedFcn=@(~, ~)layout.Callbacks.loadWorkspace());
+            uimenu(fileMenu, Text="保存项目", ...
+                MenuSelectedFcn=@(~, ~)layout.Callbacks.saveWorkspace());
+            uimenu(fileMenu, Text="设置结果根目录…", Separator="on", ...
+                MenuSelectedFcn=@(~, ~)layout.Callbacks.chooseResultFolder());
+            viewMenu = uimenu(layout.UIFigure, Text="视图");
+            uimenu(viewMenu, Text="图像聚焦 / 恢复曲线", ...
+                MenuSelectedFcn=@(~, ~)layout.Callbacks.toggleImageFocus());
+            uimenu(viewMenu, Text="展开 / 收起参数侧栏", ...
+                MenuSelectedFcn=@(~, ~)layout.Callbacks.toggleSettings());
         end
 
-        function buildTabs(layout)
-            sharedGrid = uigridlayout(layout.MainGrid, [1, 3]);
-            sharedGrid.Layout.Row = 2;
-            sharedGrid.ColumnWidth = {"1.2x", "1x", 390};
-            sharedGrid.Padding = [0, 0, 0, 0];
-            sharedGrid.ColumnSpacing = 10;
+        function buildToolbar(layout)
+            bar = uigridlayout(layout.MainGrid, [1, 9]);
+            bar.Layout.Row = 1;
+            bar.ColumnWidth = {108, 72, "1x", 108, 96, 84, 84, 112, 100};
+            bar.Padding = [0, 0, 0, 0];
+            bar.ColumnSpacing = 7;
+            bar.BackgroundColor = [0.95, 0.96, 0.97];
+            uibutton(bar, Text="打开实验", FontWeight="bold", ...
+                ButtonPushedFcn=@(~, ~)layout.Callbacks.chooseExperimentFolder());
+            uilabel(bar, Text="标注截面", HorizontalAlignment="right");
+            layout.SectionDropDown = uidropdown(bar, Items="尚未载入实验", ...
+                ItemsData="", Value="", Enable="off", ...
+                Tooltip="选择正在标注的截面，不交换对照位置。也可点击对照图切换。", ...
+                ValueChangedFcn=@(~, event)layout.Callbacks.sectionChanged(event.Value));
+            layout.ViewModeDropDown = uidropdown(bar, ...
+                Items=["原始图像", "CBV叠加"], ItemsData=["browser", "cbv"], ...
+                Value="cbv", ValueChangedFcn=@(~, event) ...
+                    layout.Callbacks.viewModeChanged(event.Value));
+            uibutton(bar, Text="多截面对照", ...
+                ButtonPushedFcn=@(~, ~)layout.Callbacks.showComparisonPanel());
+            uibutton(bar, Text="参数 / ROI", Tooltip="展开或收起实验设置侧栏", ...
+                ButtonPushedFcn=@(~, ~)layout.Callbacks.toggleSettings());
+            uibutton(bar, Text="保存项目", ...
+                ButtonPushedFcn=@(~, ~)layout.Callbacks.saveWorkspace());
+            uibutton(bar, Text="导出汇报视频", ...
+                ButtonPushedFcn=@(~, ~)layout.Callbacks.exportVideo());
+            uibutton(bar, Text="批量处理", ...
+                ButtonPushedFcn=@(~, ~)layout.Callbacks.batchProcessSections());
+        end
 
-            layout.ImagePanel = uipanel(sharedGrid, Title="共享画面 · 原始SVD", ...
-                BackgroundColor=[0.06, 0.07, 0.08]);
-            layout.ImagePanel.Layout.Column = 1;
-            imageGrid = uigridlayout(layout.ImagePanel, [2, 1]);
-            imageGrid.RowHeight = {30, "1x"};
-            imageGrid.Padding = [5, 5, 5, 5];
-            roiBar = uigridlayout(imageGrid, [1, 2]);
-            roiBar.Layout.Row = 1;
-            roiBar.ColumnWidth = {125, "1x"};
-            roiBar.Padding = [0, 0, 0, 0];
-            uibutton(roiBar, Text="添加多边形ROI", ...
+        function buildWorkspace(layout)
+            layout.BodyGrid = uigridlayout(layout.MainGrid, [1, 2]);
+            layout.BodyGrid.Layout.Row = 2;
+            layout.BodyGrid.ColumnWidth = {"1x", 320};
+            layout.BodyGrid.Padding = [0, 0, 0, 0];
+            layout.BodyGrid.ColumnSpacing = 10;
+            layout.BodyGrid.BackgroundColor = [0.95, 0.96, 0.97];
+
+            workspace = uigridlayout(layout.BodyGrid, [3, 1]);
+            workspace.Layout.Column = 1;
+            workspace.RowHeight = {28, "2.7x", "1x"};
+            workspace.RowSpacing = 6;
+            workspace.Padding = [0, 0, 0, 0];
+            workspace.BackgroundColor = [0.95, 0.96, 0.97];
+            bar = uigridlayout(workspace, [1, 10]);
+            bar.Layout.Row = 1;
+            bar.ColumnWidth = {114, 108, 64, 98, 94, 52, 64, 72, 54, "1x"};
+            bar.Padding = [0, 0, 0, 0];
+            bar.BackgroundColor = [0.95, 0.96, 0.97];
+            uibutton(bar, Text="添加多边形ROI", ...
                 ButtonPushedFcn=@(~, ~)layout.Callbacks.addPolygonROI());
-            layout.ROIStatusLabel = uilabel(roiBar, Text="ROI: 0", ...
-                FontColor=[0.92, 0.92, 0.92]);
-            roiBar.BackgroundColor = [0.06, 0.07, 0.08];
-            layout.BrowserAxes = uiaxes(imageGrid, Color=[0.04, 0.04, 0.05]);
-            layout.BrowserAxes.Layout.Row = 2;
+            uibutton(bar, Text="绘制显示掩膜", ...
+                Tooltip="只限制彩色叠加的显示区域，不改变ROI定量。", ...
+                ButtonPushedFcn=@(~, ~)layout.Callbacks.drawDisplayMask());
+            uibutton(bar, Text="清除掩膜", ...
+                ButtonPushedFcn=@(~, ~)layout.Callbacks.clearDisplayMask());
+            layout.ImageFocusButton = uibutton(bar, Text="放大标注", ...
+                Tooltip="仅放大当前标注截面，暂时隐藏对照、曲线和侧栏；再次点击恢复。", ...
+                ButtonPushedFcn=@(~, ~)layout.Callbacks.toggleImageFocus());
+            layout.ImageToolDropDown = uidropdown(bar, ...
+                Items=["ROI编辑", "框选放大", "平移图像"], ...
+                ItemsData=["edit", "zoom", "pan"], Value="edit", ...
+                Tooltip="滚轮也可缩放；放大只改变视野，不改变ROI坐标或导出画面。", ...
+                ValueChangedFcn=@(~, event)layout.Callbacks.imageToolChanged(event.Value));
+            uibutton(bar, Text="缩小", ...
+                ButtonPushedFcn=@(~, ~)layout.Callbacks.zoomImageOut());
+            uibutton(bar, Text="适应视野", ...
+                ButtonPushedFcn=@(~, ~)layout.Callbacks.resetImageView());
+            layout.ROILabelsCheckBox = uicheckbox(bar, Text="ROI名称", Value=false, ...
+                ValueChangedFcn=@(~, ~)layout.Callbacks.roiLabelsChanged());
+            layout.ROIStatusLabel = uilabel(bar, Text="ROI: 0", ...
+                FontColor=[0.25, 0.31, 0.37]);
+            layout.DataFolderLabel = uilabel(bar, Text="打开实验后选择截面", ...
+                FontColor=[0.35, 0.40, 0.45], HorizontalAlignment="right");
+
+            layout.ComparisonGrid = uigridlayout(workspace, [2, 2]);
+            layout.ComparisonGrid.Layout.Row = 2;
+            layout.ComparisonGrid.RowHeight = {"1x", 0};
+            layout.ComparisonGrid.ColumnWidth = {"1x", 0};
+            layout.ComparisonGrid.Padding = [0, 0, 0, 0];
+            layout.ComparisonGrid.RowSpacing = 6;
+            layout.ComparisonGrid.ColumnSpacing = 6;
+            layout.ComparisonGrid.BackgroundColor = [0.025, 0.03, 0.04];
+            layout.ImagePanel = uipanel(layout.ComparisonGrid, ...
+                Title="当前截面", FontWeight="bold", ...
+                BackgroundColor=[0.025, 0.03, 0.04], ForegroundColor=[0.90, 0.93, 0.97]);
+            layout.ImagePanel.Layout.Row = 1;
+            layout.ImagePanel.Layout.Column = 1;
+            imageGrid = uigridlayout(layout.ImagePanel, [1, 1]);
+            imageGrid.Padding = [2, 2, 2, 2];
+            imageGrid.BackgroundColor = [0.025, 0.03, 0.04];
+            layout.BrowserAxes = uiaxes(imageGrid, Color=[0.025, 0.03, 0.04]);
             layout.BrowserAxes.XTick = [];
             layout.BrowserAxes.YTick = [];
-            layout.BrowserAxes.Box = "on";
-            layout.BrowserAxes.Toolbar.Visible = "on";
+            layout.BrowserAxes.Box = "off";
+            layout.BrowserAxes.Toolbar.Visible = "off";
+            layout.BrowserAxes.Interactions = zoomInteraction;
             layout.BrowserAxes.YDir = "reverse";
+            layout.BrowserAxes.LooseInset = [4, 12, 10, 8];
             layout.CBVAxes = layout.BrowserAxes;
-            colormap(layout.BrowserAxes, fus.FrameRenderer.blueWhiteOrange(256));
+            colormap(layout.BrowserAxes, fus.FrameRenderer.blueWhiteRed(256));
             layout.CBVColorBar = colorbar(layout.BrowserAxes);
             layout.CBVColorBar.Label.String = "Δlog灰度";
+            layout.CBVColorBar.Color = [0.90, 0.93, 0.97];
             layout.CBVColorBar.Visible = "off";
 
-            curvePanel = uipanel(sharedGrid, Title="ROI CBV时间曲线");
-            curvePanel.Layout.Column = 2;
-            curveGrid = uigridlayout(curvePanel, [3, 1]);
-            curveGrid.RowHeight = {30, "1x", 170};
-            curveGrid.Padding = [6, 6, 6, 6];
-            curveBar = uigridlayout(curveGrid, [1, 2]);
-            curveBar.Layout.Row = 1;
-            curveBar.ColumnWidth = {"1x", "1x"};
-            curveBar.Padding = [0, 0, 0, 0];
-            uibutton(curveBar, Text="计算/更新曲线", ...
-                ButtonPushedFcn=@(~, ~)layout.Callbacks.showROICurves());
-            uibutton(curveBar, Text="删除选中ROI", ...
-                ButtonPushedFcn=@(~, ~)layout.Callbacks.removeSelectedROI());
-            layout.ROICurveAxes = uiaxes(curveGrid);
-            layout.ROICurveAxes.Layout.Row = 2;
+            curvePanel = uipanel(workspace, Title="ROI时间曲线 · 点击曲线定位图像", ...
+                BackgroundColor="white", ForegroundColor=[0.18, 0.23, 0.28]);
+            curvePanel.Layout.Row = 3;
+            curveGrid = uigridlayout(curvePanel, [1, 1]);
+            curveGrid.Padding = [4, 4, 4, 4];
+            curveGrid.BackgroundColor = [1, 1, 1];
+            layout.ROICurveAxes = uiaxes(curveGrid, Color="white");
+            layout.ROICurveAxes.FontSize = 11;
+            layout.ROICurveAxes.Box = "off";
+            layout.ROICurveAxes.GridAlpha = 0.12;
+            layout.ROICurveAxes.Toolbar.Visible = "off";
             grid(layout.ROICurveAxes, "on");
             xlabel(layout.ROICurveAxes, "时间 (s)");
             ylabel(layout.ROICurveAxes, "CBV");
-            layout.ROITable = uitable(curveGrid, ...
-                Data=table(false(0, 1), strings(0, 1), zeros(0, 1), ...
-                    VariableNames=["Visible", "ROI", "Pixels"]), ...
-                ColumnName={"显示", "ROI", "像素"}, ...
-                ColumnEditable=[true, false, false], ...
-                ColumnWidth={55, "auto", 65}, ...
-                CellEditCallback=@(~, event)layout.Callbacks.roiVisibilityChanged(event), ...
-                CellSelectionCallback=@(~, event)layout.Callbacks.roiSelected(event));
-            layout.ROITable.Layout.Row = 3;
 
-            layout.TabGroup = uitabgroup(sharedGrid, ...
-                SelectionChangedFcn=@(~, event)layout.Callbacks.viewTabChanged(event.NewValue));
-            layout.TabGroup.Layout.Column = 3;
-            layout.BrowserTab = uitab(layout.TabGroup, Title="浏览与导出");
-            layout.CBVTab = uitab(layout.TabGroup, Title="CBV分析");
-            layout.ExperimentTab = uitab(layout.TabGroup, Title="实验计划");
-            layout.buildBrowserTab(layout.BrowserTab);
+            layout.SettingsPanel = uipanel(layout.BodyGrid, BorderType="none", ...
+                BackgroundColor=[0.98, 0.98, 0.99]);
+            layout.SettingsPanel.Layout.Column = 2;
+            side = uigridlayout(layout.SettingsPanel, [2, 1]);
+            side.RowHeight = {"1x", 34};
+            side.Padding = [0, 0, 0, 0];
+            side.BackgroundColor = [0.98, 0.98, 0.99];
+            % 显示模式由顶部控件独立控制，切换参数标签页不再改变画面。
+            layout.TabGroup = uitabgroup(side);
+            layout.CBVTab = uitab(layout.TabGroup, Title="CBV");
+            layout.ComparisonTab = uitab(layout.TabGroup, Title="截面 / ROI");
+            layout.ExperimentTab = uitab(layout.TabGroup, Title="计划");
+            layout.BrowserTab = uitab(layout.TabGroup, Title="显示 / 导出");
             layout.buildCBVTab(layout.CBVTab);
+            layout.buildSectionTab(layout.ComparisonTab);
             layout.buildExperimentTab(layout.ExperimentTab);
+            layout.buildDisplayTab(layout.BrowserTab);
+            layout.ExperimentStatusLabel = uilabel(side, ...
+                Text="实验配置共用 · ROI按截面保存", WordWrap="on", ...
+                FontSize=10, FontColor=[0.36, 0.42, 0.48]);
+            layout.ExperimentStatusLabel.Layout.Row = 2;
         end
 
-        function buildBrowserTab(layout, parentTab)
-            grid = uigridlayout(parentTab, [1, 1]);
-            grid.Padding = [6, 6, 6, 6];
-            controlPanel = uipanel(grid, Title="共享画面、标记与导出");
-            controls = uigridlayout(controlPanel, [12, 2]);
-            controls.RowHeight = {28, 28, 28, 28, 28, 28, 28, 28, "1x", 28, 28, 28};
+        function buildCBVTab(layout, tab)
+            controls = layout.sideGrid(tab, 18);
             controls.ColumnWidth = {120, "1x"};
-            controls.Padding = [10, 10, 10, 10];
-            controls.RowSpacing = 6;
-
-            layout.addControlLabel(controls, "显示色表");
-            layout.BrowserColormapDropDown = uidropdown(controls, ...
-                Items=["原图", "hot", "gray", "parula", "turbo", "jet", "bone", "copper"], ...
-                Value="原图", ValueChangedFcn=@(~, ~)layout.Callbacks.refreshBrowser());
-
-            layout.TimestampCheckBox = uicheckbox(controls, ...
-                Text="显示/导出时间戳", Value=true, ...
-                ValueChangedFcn=@(~, ~)layout.Callbacks.refreshSharedView());
-            layout.TimestampCheckBox.Layout.Column = [1, 2];
-
-            layout.addControlLabel(controls, "共享画布宽度");
-            layout.WidthField = uieditfield(controls, "numeric", Value=256, ...
-                Limits=[eps, Inf], ValueChangedFcn=@(~, ~)layout.Callbacks.widthChanged());
-            layout.addControlLabel(controls, "共享画布高度");
-            layout.HeightField = uieditfield(controls, "numeric", Value=424, ...
-                Limits=[eps, Inf], ValueChangedFcn=@(~, ~)layout.Callbacks.heightChanged());
-
-            layout.LockRatioCheckBox = uicheckbox(controls, ...
-                Text="锁定当前宽高比", Value=false, ...
-                ValueChangedFcn=@(~, ~)layout.Callbacks.lockRatioChanged());
-            layout.LockRatioCheckBox.Layout.Column = [1, 2];
-
-            addBookmarkButton = uibutton(controls, Text="记录当前时间点", ...
-                ButtonPushedFcn=@(~, ~)layout.Callbacks.addBookmark());
-            addBookmarkButton.Layout.Column = [1, 2];
-            deleteBookmarkButton = uibutton(controls, Text="删除选中标记", ...
-                ButtonPushedFcn=@(~, ~)layout.Callbacks.deleteBookmark());
-            deleteBookmarkButton.Layout.Column = [1, 2];
-
-            tableLabel = uilabel(controls, Text="共享时间标记（备注可编辑）", ...
-                FontWeight="bold");
-            tableLabel.Layout.Column = [1, 2];
-            layout.BookmarkTable = uitable(controls, Data=layout.Bookmarks, ...
-                ColumnEditable=[false, false, false, true], ...
-                ColumnName={"帧", "时间(s)", "文件", "备注"}, ...
-                ColumnWidth={45, 65, 115, "auto"});
-            layout.BookmarkTable.Layout.Row = 9;
-            layout.BookmarkTable.Layout.Column = [1, 2];
-
-            saveMarksButton = uibutton(controls, Text="保存时间标记CSV", ...
-                ButtonPushedFcn=@(~, ~)layout.Callbacks.saveBookmarks());
-            saveMarksButton.Layout.Column = [1, 2];
-            exportVideoButton = uibutton(controls, Text="导出MP4", ...
-                FontWeight="bold", ButtonPushedFcn=@(~, ~)layout.Callbacks.exportVideo());
-            exportVideoButton.Layout.Column = [1, 2];
-        end
-
-        function buildCBVTab(layout, parentTab)
-            grid = uigridlayout(parentTab, [1, 1]);
-            grid.Padding = [6, 6, 6, 6];
-            controlPanel = uipanel(grid, Title="共享画面的CBV处理参数");
-            controls = uigridlayout(controlPanel, [16, 2]);
-            % Keep every CBV control reachable on a 1280x720 display.  The
-            % standalone App is often maximized onto a shorter screen than
-            % the 1500x900 development window.
-            controls.RowHeight = repmat({24}, 1, 16);
-            controls.ColumnWidth = {150, "1x"};
-            controls.Padding = [8, 8, 8, 8];
-            controls.RowSpacing = 3;
-
-            layout.addControlLabel(controls, "baseline开始 (s)");
+            controls.RowHeight{7} = 38;
+            controls.RowHeight{11} = 42;
+            layout.sectionTitle(controls, 1, "计算 · 全部截面共用");
+            layout.parameterLabel(controls, 2, "baseline开始 (s)");
             layout.BaselineStartField = uieditfield(controls, "numeric", Value=0, ...
                 Limits=[0, Inf], ValueChangedFcn=@(~, ~)layout.Callbacks.markBaselineDirty());
-            layout.addControlLabel(controls, "baseline结束 (s)");
+            layout.placeControl(layout.BaselineStartField, 2);
+            layout.parameterLabel(controls, 3, "baseline结束 (s)");
             layout.BaselineEndField = uieditfield(controls, "numeric", Value=60, ...
                 Limits=[0, Inf], ValueChangedFcn=@(~, ~)layout.Callbacks.markBaselineDirty());
-            layout.addControlLabel(controls, "空间平均 (px)");
+            layout.placeControl(layout.BaselineEndField, 3);
+            layout.parameterLabel(controls, 4, "空间平均 (px)");
             layout.SpatialAverageField = uieditfield(controls, "numeric", Value=5, ...
                 Limits=[1, 31], RoundFractionalValues="on", ...
                 ValueChangedFcn=@(~, ~)layout.Callbacks.markBaselineDirty());
-            layout.addControlLabel(controls, "时间平均 (帧)");
+            layout.placeControl(layout.SpatialAverageField, 4);
+            layout.parameterLabel(controls, 5, "时间平均 (帧)");
             layout.TemporalAverageField = uieditfield(controls, "numeric", Value=5, ...
                 Limits=[1, 121], RoundFractionalValues="on", ...
                 ValueChangedFcn=@(~, ~)layout.Callbacks.temporalAverageChanged());
+            layout.placeControl(layout.TemporalAverageField, 5);
+            layout.ComputeBaselineButton = uibutton(controls, Text="计算CBV与全部ROI", ...
+                Tooltip="更新当前baseline，并自动计算项目ROI总览内所有截面的全部ROI。", ...
+                FontWeight="bold", Enable="off", ...
+                ButtonPushedFcn=@(~, ~)layout.Callbacks.computeBaseline());
+            layout.fullRow(layout.ComputeBaselineButton, 6);
+            layout.UnitLabel = uilabel(controls, Text="Δlog灰度（未标定）", ...
+                WordWrap="on", FontSize=10, FontColor=[0.60, 0.28, 0.10]);
+            layout.fullRow(layout.UnitLabel, 7);
 
-            layout.addControlLabel(controls, "输入图语义");
-            layout.ConversionDropDown = uidropdown(controls, ...
-                Items=["未知log图", "8-bit dB图", "标定log10图", "线性功率图"], ...
-                ItemsData=["unknown", "dB8bit", "log10Scaled", "linear"], ...
-                Value="unknown", ValueChangedFcn=@(~, ~)layout.Callbacks.conversionChanged());
-            layout.addControlLabel(controls, "总动态范围 (dB)");
-            layout.DynamicRangeField = uieditfield(controls, "numeric", Value=60, ...
-                Limits=[eps, 200], ValueChangedFcn=@(~, ~)layout.Callbacks.markBaselineDirty());
-            layout.addControlLabel(controls, "log10单位/灰度");
-            layout.Log10ScaleField = uieditfield(controls, "numeric", Value=0.01, ...
-                Limits=[eps, 1], ValueDisplayFormat="%.6f", ...
-                ValueChangedFcn=@(~, ~)layout.Callbacks.markBaselineDirty());
-            layout.addControlLabel(controls, "baseline灰度下限");
-            layout.MinimumBaselineField = uieditfield(controls, "numeric", Value=35, ...
-                Limits=[0, 255], ValueChangedFcn=@(~, ~)layout.Callbacks.markBaselineDirty());
-            layout.addControlLabel(controls, "低阈值 (绝对值)");
+            layout.sectionTitle(controls, 8, "显示 · 不改变定量结果");
+            layout.parameterLabel(controls, 9, "低阈值 (绝对值)");
             layout.LowThresholdField = uieditfield(controls, "numeric", Value=0, ...
                 Limits=[0, Inf], ValueChangedFcn=@(~, ~)layout.Callbacks.refreshCBVDisplayOnly());
-            layout.addControlLabel(controls, "显示范围 ±");
+            layout.placeControl(layout.LowThresholdField, 9);
+            layout.parameterLabel(controls, 10, "显示范围 ±");
             layout.HighThresholdField = uieditfield(controls, "numeric", Value=15, ...
                 Limits=[eps, Inf], ValueChangedFcn=@(~, ~)layout.Callbacks.refreshCBVDisplayOnly());
-            layout.addControlLabel(controls, "叠加透明度");
+            layout.placeControl(layout.HighThresholdField, 10);
+            layout.parameterLabel(controls, 11, "彩色叠加强度");
             layout.TransparencySlider = uislider(controls, Limits=[0, 1], Value=0.75, ...
                 MajorTicks=[0, 0.5, 1], ...
                 ValueChangingFcn=@(~, event)layout.Callbacks.transparencyChanging(event.Value), ...
                 ValueChangedFcn=@(~, ~)layout.Callbacks.refreshCBVDisplayOnly());
-
+            layout.placeControl(layout.TransparencySlider, 11);
             layout.ShowBackgroundCheckBox = uicheckbox(controls, ...
                 Text="显示解剖背景", Value=true, ...
                 ValueChangedFcn=@(~, ~)layout.Callbacks.refreshCBV());
-            layout.ShowBackgroundCheckBox.Layout.Row = 12;
-            layout.ShowBackgroundCheckBox.Layout.Column = 1;
+            layout.fullRow(layout.ShowBackgroundCheckBox, 12);
             layout.BrainMaskCheckBox = uicheckbox(controls, ...
-                Text="信号掩膜", Value=true, ...
+                Text="限制到手绘区域", Value=false, ...
+                Tooltip="使用当前截面的手绘显示掩膜；没有掩膜时显示全部区域。", ...
                 ValueChangedFcn=@(~, ~)layout.Callbacks.refreshCBVDisplayOnly());
-            layout.BrainMaskCheckBox.Layout.Row = 12;
-            layout.BrainMaskCheckBox.Layout.Column = 2;
-
-            layout.ComputeBaselineButton = uibutton(controls, Text="计算/更新baseline", ...
-                FontWeight="bold", Enable="off", ...
-                ButtonPushedFcn=@(~, ~)layout.Callbacks.computeBaseline());
-            layout.ComputeBaselineButton.Layout.Row = 13;
-            layout.ComputeBaselineButton.Layout.Column = [1, 2];
+            layout.fullRow(layout.BrainMaskCheckBox, 13);
+            drawButton = uibutton(controls, Text="绘制显示掩膜", ...
+                ButtonPushedFcn=@(~, ~)layout.Callbacks.drawDisplayMask());
+            drawButton.Layout.Row = 14;
+            drawButton.Layout.Column = 1;
+            clearButton = uibutton(controls, Text="清除掩膜", ...
+                ButtonPushedFcn=@(~, ~)layout.Callbacks.clearDisplayMask());
+            layout.placeControl(clearButton, 14);
             layout.SaveCBVButton = uibutton(controls, Text="保存当前CBV图与数值", ...
                 Enable="off", ButtonPushedFcn=@(~, ~)layout.Callbacks.saveCurrentCBVResult());
-            layout.SaveCBVButton.Layout.Row = 14;
-            layout.SaveCBVButton.Layout.Column = [1, 2];
-            layout.ExportCBVVideoButton = uibutton(controls, ...
-                Text="按当前显示导出CBV MP4", FontWeight="bold", ...
+            layout.fullRow(layout.SaveCBVButton, 15);
+            layout.ExportCBVVideoButton = uibutton(controls, Text="导出CBV汇报视频", ...
                 Enable="off", ButtonPushedFcn=@(~, ~)layout.Callbacks.exportCBVVideo());
-            layout.ExportCBVVideoButton.Layout.Row = 15;
-            layout.ExportCBVVideoButton.Layout.Column = [1, 2];
-            helpLabel = uilabel(controls, ...
-                Text="橙=增强，蓝=抑制；未知标定时单位仅为Δlog灰度。", ...
-                FontColor=[0.38, 0.42, 0.46]);
-            helpLabel.Layout.Row = 16;
-            helpLabel.Layout.Column = [1, 2];
+            layout.fullRow(layout.ExportCBVVideoButton, 16);
+            help = uilabel(controls, ...
+                Text="ROI用于定量；显示掩膜用于突出脑区。两者独立，ROI内部仍显示CBV。", ...
+                WordWrap="on", FontSize=10, FontColor=[0.38, 0.43, 0.48]);
+            help.Layout.Row = [17, 18];
+            help.Layout.Column = [1, 2];
         end
 
-        function buildExperimentTab(layout, parentTab)
-            grid = uigridlayout(parentTab, [7, 1]);
-            grid.RowHeight = {32, 28, "1x", 32, 32, 32, 46};
-            grid.Padding = [10, 10, 10, 10];
-            grid.RowSpacing = 7;
+        function buildSectionTab(layout, tab)
+            controls = uigridlayout(tab, [10, 1]);
+            controls.RowHeight = {28, 112, 26, 28, 22, 112, 28, 28, 24, 130};
+            controls.Padding = [8, 8, 8, 8];
+            controls.RowSpacing = 6;
+            controls.Scrollable = "on";
+            controls.BackgroundColor = [0.98, 0.98, 0.99];
+            uilabel(controls, Text="截面对照 · 最多同时显示4个", FontWeight="bold");
+            layout.SectionListBox = uilistbox(controls, ...
+                Items="尚未载入实验", ItemsData="", Value="", Enable="off", ...
+                Multiselect="on", Tooltip="按Command/Ctrl多选截面，所有画面共用时间。", ...
+                ValueChangedFcn=@(~, event)layout.Callbacks.comparisonSelectionChanged(event.Value));
+            layout.ShowAllSectionsCheckBox = uicheckbox(controls, ...
+                Text="显示跨截面ROI曲线", Value=true, ...
+                Tooltip="叠加当前对照截面的有效ROI曲线；全部ROI仍保留在项目总览。", ...
+                ValueChangedFcn=@(~, ~)layout.Callbacks.rebuildComparisonCurves());
+            uibutton(controls, Text="更新项目全部ROI曲线", ...
+                ButtonPushedFcn=@(~, ~)layout.Callbacks.computeExperimentCurves());
+            uilabel(controls, Text="当前截面ROI · 拖动顶点 / 双击名称编辑", FontWeight="bold", FontSize=10);
+            layout.ROITable = uitable(controls, ...
+                Data=table(false(0, 1), strings(0, 1), zeros(0, 1), ...
+                    VariableNames=["Visible", "ROI", "Pixels"]), ...
+                ColumnName={"显示", "ROI", "像素"}, RowName=[], ...
+                ColumnEditable=[true, true, false], ColumnWidth={42, "auto", 54}, ...
+                CellEditCallback=@(~, event)layout.Callbacks.roiVisibilityChanged(event), ...
+                CellSelectionCallback=@(~, event)layout.Callbacks.roiSelected(event));
+            rowBar = uigridlayout(controls, [1, 2]);
+            rowBar.Padding = [0, 0, 0, 0];
+            rowBar.ColumnWidth = {"1x", "1x"};
+            uibutton(rowBar, Text="更新全部ROI曲线", ...
+                ButtonPushedFcn=@(~, ~)layout.Callbacks.showROICurves());
+            uibutton(rowBar, Text="删除选中ROI", ...
+                ButtonPushedFcn=@(~, ~)layout.Callbacks.removeSelectedROI());
+            uibutton(controls, Text="导出ROI曲线数据", ...
+                ButtonPushedFcn=@(~, ~)layout.Callbacks.exportROICurves());
+            uilabel(controls, Text="项目ROI总览 · 点击切换到对应截面", FontWeight="bold", FontSize=10);
+            layout.CrossROITable = uitable(controls, ...
+                Data=table(strings(0, 1), strings(0, 1), strings(0, 1), ...
+                    strings(0, 1), zeros(0, 1), ...
+                    VariableNames=["SectionKey", "Section", "ROI", "Status", "ROIIndex"]), ...
+                ColumnName={"路径", "截面", "ROI", "状态", "编号"}, RowName=[], ...
+                ColumnEditable=false, ColumnWidth={0, 70, "auto", 70, 0}, ...
+                CellSelectionCallback=@(~, event)layout.Callbacks.crossROISelected(event));
+        end
 
-            titleLabel = uilabel(grid, Text="功能实验阶段自动时间戳", ...
-                FontWeight="bold");
-            titleLabel.Layout.Row = 1;
+        function buildExperimentTab(layout, tab)
+            grid = uigridlayout(tab, [7, 1]);
+            grid.RowHeight = {34, "1x", 28, 28, 28, 28, 54};
+            grid.Padding = [8, 8, 8, 8];
+            grid.RowSpacing = 6;
+            grid.Scrollable = "on";
+            grid.BackgroundColor = [0.98, 0.98, 0.99];
             layout.ShowPhaseCheckBox = uicheckbox(grid, ...
-                Text="在画面和导出视频中显示实验阶段", Value=true, ...
+                Text="画面和视频显示实验阶段", Value=true, ...
                 ValueChangedFcn=@(~, ~)layout.Callbacks.refreshSharedView());
-            layout.ShowPhaseCheckBox.Layout.Row = 2;
             layout.ExperimentPlanTable = uitable(grid, Data=layout.ExperimentPlan, ...
                 ColumnName={"开始(s)", "结束(s)", "阶段"}, ...
-                ColumnEditable=[true, true, true], ...
-                ColumnWidth={70, 70, "auto"}, ...
-                CellEditCallback=@(~, ~)layout.Callbacks.experimentPlanChanged());
-            layout.ExperimentPlanTable.Layout.Row = 3;
-
-            resetButton = uibutton(grid, Text="恢复本次9分钟胡须实验计划", ...
-                ButtonPushedFcn=@(~, ~)layout.Callbacks.resetExperimentPlan());
-            resetButton.Layout.Row = 4;
-            loadButton = uibutton(grid, Text="载入实验计划CSV", ...
+                ColumnEditable=[true, true, true], ColumnWidth={60, 60, "auto"}, ...
+                RowName=[], CellEditCallback=@(~, ~)layout.Callbacks.experimentPlanChanged());
+            rowBar = uigridlayout(grid, [1, 2]);
+            rowBar.Padding = [0, 0, 0, 0];
+            rowBar.ColumnWidth = {"1x", "1x"};
+            uibutton(rowBar, Text="添加阶段", ...
+                ButtonPushedFcn=@(~, ~)layout.Callbacks.addExperimentPhase());
+            uibutton(rowBar, Text="删除选中阶段", ...
+                ButtonPushedFcn=@(~, ~)layout.Callbacks.deleteExperimentPhase());
+            uibutton(grid, Text="载入实验计划CSV", ...
                 ButtonPushedFcn=@(~, ~)layout.Callbacks.loadExperimentPlan());
-            loadButton.Layout.Row = 5;
-            saveButton = uibutton(grid, Text="保存实验计划CSV", ...
+            uibutton(grid, Text="保存实验计划CSV", ...
                 ButtonPushedFcn=@(~, ~)layout.Callbacks.saveExperimentPlan());
-            saveButton.Layout.Row = 6;
-            helpLabel = uilabel(grid, ...
-                Text="区间按 [开始, 结束) 判断；例如180.0 s自动进入右侧触摸。", ...
-                FontColor=[0.38, 0.42, 0.46], WordWrap="on");
-            helpLabel.Layout.Row = 7;
+            uibutton(grid, Text="恢复默认后爪实验计划", ...
+                ButtonPushedFcn=@(~, ~)layout.Callbacks.resetExperimentPlan());
+            uilabel(grid, Text="全部截面共用同一计划。刺激时段直接标在曲线上，不再维护重复的时间书签。", ...
+                WordWrap="on", FontSize=10, FontColor=[0.38, 0.43, 0.48]);
+        end
+
+        function buildDisplayTab(layout, tab)
+            controls = layout.sideGrid(tab, 22);
+            controls.ColumnWidth = {120, "1x"};
+            layout.sectionTitle(controls, 1, "视频与显示");
+            layout.parameterLabel(controls, 2, "导出样式");
+            layout.ExportStyleDropDown = uidropdown(controls, ...
+                Items=["汇报：图像＋曲线", "纯图像"], ...
+                ItemsData=["presentation", "image"], Value="presentation");
+            layout.placeControl(layout.ExportStyleDropDown, 2);
+            layout.parameterLabel(controls, 3, "原图色表");
+            layout.BrowserColormapDropDown = uidropdown(controls, ...
+                Items=["原图", "gray", "bone", "hot", "parula", "turbo", "jet", "copper"], ...
+                Value="原图", ...
+                ValueChangedFcn=@(~, ~)layout.Callbacks.refreshBrowser());
+            layout.placeControl(layout.BrowserColormapDropDown, 3);
+            layout.TimestampCheckBox = uicheckbox(controls, Text="显示时间戳", Value=true, ...
+                ValueChangedFcn=@(~, ~)layout.Callbacks.refreshSharedView());
+            layout.fullRow(layout.TimestampCheckBox, 4);
+            layout.parameterLabel(controls, 5, "共享画布宽度");
+            layout.WidthField = uieditfield(controls, "numeric", Value=256, ...
+                Limits=[eps, Inf], ValueChangedFcn=@(~, ~)layout.Callbacks.widthChanged());
+            layout.placeControl(layout.WidthField, 5);
+            layout.parameterLabel(controls, 6, "共享画布高度");
+            layout.HeightField = uieditfield(controls, "numeric", Value=424, ...
+                Limits=[eps, Inf], ValueChangedFcn=@(~, ~)layout.Callbacks.heightChanged());
+            layout.placeControl(layout.HeightField, 6);
+            layout.LockRatioCheckBox = uicheckbox(controls, Text="锁定当前宽高比", Value=true, ...
+                ValueChangedFcn=@(~, ~)layout.Callbacks.lockRatioChanged());
+            layout.fullRow(layout.LockRatioCheckBox, 7);
+            layout.parameterLabel(controls, 8, "实际帧率");
+            layout.ActualFPSField = uieditfield(controls, "numeric", Value=2, ...
+                Limits=[0.01, 1000], ValueDisplayFormat="%.3f 帧/s", ...
+                ValueChangedFcn=@(~, ~)layout.Callbacks.actualFPSChanged());
+            layout.placeControl(layout.ActualFPSField, 8);
+            layout.parameterLabel(controls, 9, "播放/导出帧率");
+            layout.PlaybackFPSField = uieditfield(controls, "numeric", Value=10, ...
+                Limits=[0.1, 120], ValueDisplayFormat="%.2f 帧/s", ...
+                ValueChangedFcn=@(~, ~)layout.Callbacks.playbackFPSChanged());
+            layout.placeControl(layout.PlaybackFPSField, 9);
+
+            layout.sectionTitle(controls, 10, "输入标定 · 高级设置");
+            layout.parameterLabel(controls, 11, "输入图语义");
+            layout.ConversionDropDown = uidropdown(controls, ...
+                Items=["未知log图", "8-bit dB图", "标定log10图", "线性功率图"], ...
+                ItemsData=["unknown", "dB8bit", "log10Scaled", "linear"], Value="unknown", ...
+                ValueChangedFcn=@(~, ~)layout.Callbacks.conversionChanged());
+            layout.placeControl(layout.ConversionDropDown, 11);
+            layout.parameterLabel(controls, 12, "总动态范围 (dB)");
+            layout.DynamicRangeField = uieditfield(controls, "numeric", Value=60, ...
+                Limits=[eps, 200], ValueChangedFcn=@(~, ~)layout.Callbacks.markBaselineDirty());
+            layout.placeControl(layout.DynamicRangeField, 12);
+            layout.parameterLabel(controls, 13, "log10单位/灰度");
+            layout.Log10ScaleField = uieditfield(controls, "numeric", Value=0.01, ...
+                Limits=[eps, 1], ValueDisplayFormat="%.6f", ...
+                ValueChangedFcn=@(~, ~)layout.Callbacks.markBaselineDirty());
+            layout.placeControl(layout.Log10ScaleField, 13);
+            layout.parameterLabel(controls, 14, "baseline灰度下限");
+            layout.MinimumBaselineField = uieditfield(controls, "numeric", Value=35, ...
+                Limits=[0, 255], ValueChangedFcn=@(~, ~)layout.Callbacks.markBaselineDirty());
+            layout.placeControl(layout.MinimumBaselineField, 14);
+
+            layout.sectionTitle(controls, 15, "项目位置");
+            resultButton = uibutton(controls, Text="设置结果根目录", ...
+                ButtonPushedFcn=@(~, ~)layout.Callbacks.chooseResultFolder());
+            layout.fullRow(resultButton, 16);
+            layout.ResultFolderLabel = uilabel(controls, Text="尚未设置", ...
+                WordWrap="on", FontSize=10, FontColor=[0.38, 0.43, 0.48]);
+            layout.ResultFolderLabel.Layout.Row = [17, 18];
+            layout.ResultFolderLabel.Layout.Column = [1, 2];
+            openButton = uibutton(controls, Text="打开项目", ...
+                ButtonPushedFcn=@(~, ~)layout.Callbacks.loadWorkspace());
+            layout.fullRow(openButton, 19);
+            description = uilabel(controls, Text="参数自动保存。画布宽高用于显示，不代表毫米标定。", ...
+                WordWrap="on", FontSize=10, FontColor=[0.38, 0.43, 0.48]);
+            description.Layout.Row = [20, 21];
+            description.Layout.Column = [1, 2];
+            % 只为旧工作区迁移保留数据容器，不再显示重复的时间书签功能。
+            layout.BookmarkTable = uitable(controls, Data=layout.Bookmarks, ...
+                Visible="off", ColumnEditable=[false, false, false, true]);
+            layout.fullRow(layout.BookmarkTable, 22);
+            controls.RowHeight{22} = 0;
         end
 
         function buildTimeline(layout)
-            grid = uigridlayout(layout.MainGrid, [3, 7]);
+            grid = uigridlayout(layout.MainGrid, [2, 4]);
             grid.Layout.Row = 3;
-            grid.RowHeight = {34, 30, 28};
-            grid.ColumnWidth = {90, "1x", 110, 140, 110, 140, 180};
+            grid.RowHeight = {32, 22};
+            grid.ColumnWidth = {72, "1x", 178, 180};
             grid.Padding = [0, 0, 0, 0];
-
+            grid.RowSpacing = 3;
+            grid.BackgroundColor = [0.95, 0.96, 0.97];
             layout.PlayButton = uibutton(grid, Text="播放", Enable="off", ...
                 ButtonPushedFcn=@(~, ~)layout.Callbacks.togglePlayback());
-            layout.PlayButton.Layout.Row = [1, 2];
+            layout.PlayButton.Layout.Row = 1;
             layout.PlayButton.Layout.Column = 1;
             layout.TimelineSlider = uislider(grid, Limits=[1, 2], Value=1, ...
                 Enable="off", MajorTicks=[], ...
                 ValueChangingFcn=@(~, event)layout.Callbacks.sliderMoving(event.Value), ...
                 ValueChangedFcn=@(~, event)layout.Callbacks.sliderMoving(event.Value));
             layout.TimelineSlider.Layout.Row = 1;
-            layout.TimelineSlider.Layout.Column = [2, 6];
+            layout.TimelineSlider.Layout.Column = [2, 3];
             layout.FrameLabel = uilabel(grid, Text="0 / 0", HorizontalAlignment="right");
             layout.FrameLabel.Layout.Row = 1;
-            layout.FrameLabel.Layout.Column = 7;
-
-            actualLabel = uilabel(grid, Text="实际帧率", HorizontalAlignment="right");
-            actualLabel.Layout.Row = 2;
-            actualLabel.Layout.Column = 2;
-            layout.ActualFPSField = uieditfield(grid, "numeric", Value=2, ...
-                Limits=[0.01, 1000], ValueDisplayFormat="%.2f 帧/s", ...
-                ValueChangedFcn=@(~, ~)layout.Callbacks.actualFPSChanged());
-            layout.ActualFPSField.Layout.Row = 2;
-            layout.ActualFPSField.Layout.Column = 3;
-            playbackLabel = uilabel(grid, Text="播放/导出帧率", HorizontalAlignment="right");
-            playbackLabel.Layout.Row = 2;
-            playbackLabel.Layout.Column = 4;
-            layout.PlaybackFPSField = uieditfield(grid, "numeric", Value=10, ...
-                Limits=[0.1, 120], ValueDisplayFormat="%.2f 帧/s", ...
-                ValueChangedFcn=@(~, ~)layout.Callbacks.playbackFPSChanged());
-            layout.PlaybackFPSField.Layout.Row = 2;
-            layout.PlaybackFPSField.Layout.Column = 5;
-            layout.PhaseLabel = uilabel(grid, ...
-                Text="共享画面：尚未载入数据", ...
-                FontColor=[0.24, 0.32, 0.40], FontWeight="bold");
-            layout.PhaseLabel.Layout.Row = 3;
-            layout.PhaseLabel.Layout.Column = [1, 7];
+            layout.FrameLabel.Layout.Column = 4;
+            layout.PhaseLabel = uilabel(grid, Text="尚未载入实验", ...
+                FontWeight="bold", FontSize=11, FontColor=[0.25, 0.31, 0.37]);
+            layout.PhaseLabel.Layout.Row = 2;
+            layout.PhaseLabel.Layout.Column = [1, 2];
+            layout.StatusLabel = uilabel(grid, Text="打开实验开始分析", ...
+                FontSize=10, FontColor=[0.38, 0.43, 0.48], HorizontalAlignment="right");
+            layout.StatusLabel.Layout.Row = 2;
+            layout.StatusLabel.Layout.Column = [3, 4];
         end
 
-        function addControlLabel(~, grid, textValue)
-            label = uilabel(grid, Text=textValue, HorizontalAlignment="right");
+        function controls = sideGrid(~, tab, rows)
+            controls = uigridlayout(tab, [rows, 2]);
+            controls.RowHeight = repmat({28}, 1, rows);
+            controls.Padding = [8, 8, 8, 8];
+            controls.RowSpacing = 7;
+            controls.Scrollable = "on";
+            controls.BackgroundColor = [0.98, 0.98, 0.99];
+        end
+
+        function sectionTitle(~, controls, row, textValue)
+            label = uilabel(controls, Text=textValue, FontWeight="bold", ...
+                FontColor=[0.22, 0.29, 0.36], FontSize=11);
+            label.Layout.Row = row;
+            label.Layout.Column = [1, 2];
+        end
+
+        function parameterLabel(~, controls, row, textValue)
+            label = uilabel(controls, Text=textValue, HorizontalAlignment="right", FontSize=11);
+            label.Layout.Row = row;
             label.Layout.Column = 1;
+        end
+
+        function placeControl(~, control, row)
+            control.Layout.Row = row;
+            control.Layout.Column = 2;
+        end
+
+        function fullRow(~, control, row)
+            control.Layout.Row = row;
+            control.Layout.Column = [1, 2];
         end
     end
 end

@@ -7,6 +7,10 @@
 # Keep the published installer and the local icon update with the source.
 !/release/fUSWorkspace_1.5.2.mltbx
 !/release/fUSWorkspace_1.5.3.mltbx
+!/release/fUSWorkspace_1.6.0.mltbx
+!/release/fUSWorkspace_1.7.0.mltbx
+!/release/fUSWorkspace_1.7.1.mltbx
+!/release/fUSWorkspace_1.7.2.mltbx
 *.mat
 *.pdi
 *.mp4

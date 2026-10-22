@@ -1,10 +1,10 @@
 # fUS Workspace MATLAB 开发源码
 
-**当前本地安装包：** [fUS Workspace 1.5.3（Mac / Windows）](release/fUSWorkspace_1.5.3.mltbx)。已发布的上一版：[下载 1.5.2](https://github.com/YuwenTianhao/fUSWorkspace/raw/refs/heads/main/release/fUSWorkspace_1.5.2.mltbx) · [1.5.2 Release 说明与附件](https://github.com/YuwenTianhao/fUSWorkspace/releases/tag/v1.5.2)。
+**当前本地安装包：** [fUS Workspace 1.7.2（Mac / Windows）](release/fUSWorkspace_1.7.2.mltbx)。已发布的上一版：[下载1.5.2](https://github.com/YuwenTianhao/fUSWorkspace/raw/refs/heads/main/release/fUSWorkspace_1.5.2.mltbx)。
 
-本仓库为私有仓库，下载前请先登录有访问权限的 GitHub 账号。当前本地安装包保存在源码的 `release/fUSWorkspace_1.5.3.mltbx`；本次更新尚未上传或发布到 GitHub。下载后在 MATLAB 中打开 `.mltbx` 安装，再从 Apps 页面启动。
+本仓库为私有仓库，下载前请先登录有访问权限的GitHub账号。当前本地安装包为`release/fUSWorkspace_1.7.2.mltbx`，尚未上传或发布到GitHub。在MATLAB中打开`.mltbx`安装，再从Apps页面启动。
 
-这是 fUS Workspace 1.5.3 的可继续开发版本。界面、数据读取、CBV算法、实验计划和画面渲染已经分层，不绑定任何一次实验的绝对路径。1.5.2 修复实验计划时间窗在曲线重绘时叠加以及缩放定尺度错误；1.5.3 更新MATLAB Apps风格图标，去除蓝色圆框外的白色背景，保持1.5.2的分析功能。
+这是fUS Workspace 1.7.2的可继续开发版本。支持最多4截面同步对照、跨截面曲线、播放亮点和已播放轨迹。点击「计算CBV与全部ROI」会自动更新项目ROI总览中的全部截面和ROI，包括未显示的截面与隐藏ROI。选择标注对象不交换画面位置；全部图像区统一深色，支持放大标注、缩放和平移。ROI名称默认隐藏。视频先预览，可调整曲线位置、占比和分辨率。手绘显示掩膜不改变定量。1.6/1.7项目配置和ROI可继续使用。详见[实验项目与多截面](docs/实验项目与多截面.md)。
 
 ## macOS图标与窗口行为
 
@@ -23,15 +23,14 @@ Mac / Windows 共用开发、GitHub 首次上传、云端自动检查和版本�
 run("run_fUSWorkspace.m")
 ```
 
-启动后选择实验文件夹或其中的 `SVD` 文件夹。若同时检测到 PDI 和
-BMP/PNG，App 会询问使用哪一种；定量分析优先选择 PDI。
+首次启动点击「打开实验」，选择包含多个截面的上层目录。若同时检测到PDI和BMP/PNG，项目优先使用PDI，不重复列出显示图。也可从菜单选择单个数据目录，App会寻找上层已有项目并定位该截面。之后启动自动恢复上次项目。
 
 默认实验计划为：0–60秒静息baseline、60–90秒右后爪夹捏、90–150秒
 休息、150–180秒右后爪夹捏、180–240秒休息。默认baseline同步为0–60秒。
 
 ## ROI 的 CBV 曲线
 
-载入数据并计算 baseline 后，点击画面上方的「添加多边形ROI」。App 会切换到原图；逐点点击顶点，双击结束。可以重复添加多个 ROI。主窗口中间显示曲线和 ROI 列表：点击「计算/更新曲线」计算完整时间曲线，勾选「显示」列可单独显示或隐藏曲线与原图轮廓，选中列表中的任意一行后点击「删除选中ROI」即可删除它。新增 ROI 时，已经计算的曲线继续保留，只计算新增 ROI。曲线取 ROI 内各像素的 CBV 数值平均，沿用当前 baseline、空间平均和时间平均参数；显示阈值与透明度不参与数值计算。ROI 与显示状态随工作区一起保存，载入新数据时清空。
+载入数据后，点击「添加多边形ROI」，逐点点击、双击结束。点击轮廓选中后可以拖动顶点或整体移动；双击列表名称可以重命名。轮廓、列表与曲线同步突出，点击曲线定位对应图像。点击「计算CBV与全部ROI」更新当前baseline并自动重算项目ROI总览内的全部ROI；「更新全部ROI曲线」也可单独启动这一统一更新。无ROI的截面跳过，完成后恢复原截面、对照选择和缩放视野，不自动生成批处理结果目录。「导出ROI曲线」生成CSV及带名称、单位、参数的MAT。曲线取ROI内各像素的CBV数值平均；显示阈值与透明度不参与数值计算。ROI及分析缓存按截面自动保存，不在不同截面间复制。
 
 曲线背景按实验计划显示时间窗：蓝色为静息/休息，橙色为刺激，并标注阶段名称。修改实验计划后，时间窗立即更新。播放按实际经过时间定位帧；如果某次读取或绘制较慢，会追到当前时间对应的帧，避免后续播放持续落后。
 
@@ -40,17 +39,23 @@ BMP/PNG，App 会询问使用哪一种；定量分析优先选择 PDI。
 ## 目录及用途
 
 ```text
-fUSWorkspaceMATLABSource/
+fUSWorkspace/
 ├── app/
 │   ├── fUSWorkspaceAppV2.m          App行为、状态和工作流调度
 │   ├── fUSWorkspaceLayout.m         窗口、控件和布局
+│   ├── fUSWorkspaceProject.m        共用配置与逐截面状态
+│   ├── fUSWorkspaceProjectWorkflow.m 项目切换、自动恢复与批处理
+│   ├── fUSWorkspaceComparisonWorkflow.m 同步截面对照与ROI总览
+│   ├── fUSWorkspaceExportPreview.m  导出逐帧预览与布局调整
 │   └── fUSWorkspaceMatlabApp.m      MATLAB Apps页入口
 ├── core/+fus/
 │   ├── ImageSequence.m              图像发现、排序、读取和缓存
 │   ├── PDISequence.m                PDI头部校验、线性数据读取和显示重建
 │   ├── CBVEngine.m                  baseline与CBV数值算法
 │   ├── ExperimentPlan.m             实验阶段表和时间匹配
-│   └── FrameRenderer.m              色表、叠加和视频帧渲染
+│   ├── ExperimentStore.m            截面发现、相对路径与原子保存
+│   ├── FrameRenderer.m              色表、叠加和视频帧渲染
+│   └── ReportRenderer.m             科研汇报画布、轨迹与当前亮点
 ├── tests/
 │   ├── testCoreAlgorithms.m         可手算合成数据的回归测试
 │   └── run_all_tests.m              静态检查、算法测试和界面冒烟测试
@@ -58,13 +63,13 @@ fUSWorkspaceMATLABSource/
 ├── examples/                         实验计划CSV示例
 ├── build/                            工具箱打包脚本
 ├── assets/icons/                     图标母版、各尺寸导出与设计说明
-├── release/                          安装包（当前本地版1.5.3）
+├── release/                          安装包（当前本地版1.7.2）
 ├── resources/project/                MATLAB Project自动维护的元数据
 ├── fUSWorkspaceMATLABSource.prj      MATLAB Project入口
 └── run_fUSWorkspace.m                开发启动脚本
 ```
 
-`resources/project` 中的 XML 不是业务代码，但它们用于 MATLAB Project 的文件、路径和项目状态管理，因此保留并且不应手工修改。`release` 中的 MLTBX 可以通过 `build/build_mltbx.m` 重新生成。已发布的 `fUSWorkspace_1.5.2.mltbx` 保留；本地更新包 `fUSWorkspace_1.5.3.mltbx` 同样允许纳入 Git，便于随源码提供。其它构建产物继续忽略。
+`resources/project`中的XML用于MATLAB Project的文件、路径和项目状态管理，不应手工修改。`release`中的MLTBX通过`build/build_mltbx.m`生成；本地1.7.2安装包与历史版本均保留。其它构建产物继续忽略。
 
 图标的唯一母版在 `assets/icons/fUSWorkspace_AppIcon_master.png`。同目录16、24、128和256像素图标均由母版缩放；打包脚本会同步更新 `app/assets/icons` 与 `resources/assets/icons` 中的Apps注册用副本。
 
@@ -85,7 +90,7 @@ baseline = fus.CBVEngine.computeBaseline(sequence, timeRange, actualFPS, paramet
 run("tests/run_all_tests.m")
 ```
 
-测试覆盖图像排序、baseline时间映射、两类CBV公式、时间平均边界、实验阶段边界、显示掩膜，以及 App 窗口创建。
+测试覆盖原有数值算法、多截面发现和保存、移动目录恢复、ROI编辑与联动、共享参数、批处理以及载入失败时恢复原项目。
 
 ## 运行依赖
 

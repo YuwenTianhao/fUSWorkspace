@@ -4,10 +4,23 @@ projectFolder = fileparts(testsFolder);
 appFolder = fullfile(projectFolder, "app");
 coreFolder = fullfile(projectFolder, "core");
 addpath(appFolder, coreFolder, testsFolder);
+hadPreference = ispref("fUSWorkspace", "LastExperimentRoot");
+previousRoot = getpref("fUSWorkspace", "LastExperimentRoot", "");
+preferenceCleanup = onCleanup(@()restorePreference(hadPreference, previousRoot));
+if hadPreference
+    rmpref("fUSWorkspace", "LastExperimentRoot");
+end
 
+try
 sourceFiles = [ ...
     string(fullfile(appFolder, "fUSWorkspaceAppV2.m")); ...
     string(fullfile(appFolder, "fUSWorkspaceLayout.m")); ...
+    string(fullfile(appFolder, "fUSWorkspaceProject.m")); ...
+    string(fullfile(appFolder, "fUSWorkspaceProjectWorkflow.m")); ...
+    string(fullfile(appFolder, "fUSWorkspaceComparisonWorkflow.m")); ...
+    string(fullfile(appFolder, "fUSWorkspaceExportPreview.m")); ...
+    string(fullfile(coreFolder, "+fus", "ReportRenderer.m")); ...
+    string(fullfile(coreFolder, "+fus", "ExperimentStore.m")); ...
     string(fullfile(coreFolder, "+fus", "ImageSequence.m")); ...
     string(fullfile(coreFolder, "+fus", "PDISequence.m")); ...
     string(fullfile(coreFolder, "+fus", "CBVEngine.m")); ...
@@ -19,10 +32,10 @@ for file = sourceFiles'
     assert(isempty(issues), "Code Analyzer发现问题：%s", file);
 end
 
-results = runtests(fullfile(testsFolder, "testCoreAlgorithms.m"));
-assert(all([results.Passed]), "核心算法测试未全部通过。");
+results = runtests(testsFolder);
+assert(all([results.Passed]), "算法或工作流测试未全部通过。");
 
-app = fUSWorkspaceAppV2();
+app = fUSWorkspaceAppV2("", RestoreLastProject=false);
 drawnow;
 assert(isvalid(app.getFigure()), "App窗口创建失败。");
 assert(strlength(string(app.getFigure().Icon)) > 0, "App窗口图标未设置。");
@@ -34,13 +47,13 @@ assert(hasROITable, "主窗口缺少可勾选的ROI列表。");
 planTables = tables(arrayfun(@(item)istable(item.Data) ...
     && all(ismember(["Start_s", "End_s", "Label"], ...
         string(item.Data.Properties.VariableNames))), tables));
-assert(numel(planTables) == 1, "主窗口缺少实验计划列表。");
+assert(isscalar(planTables), "主窗口缺少实验计划列表。");
 patchCount = NaN;
 textCount = NaN;
 for repeat = 1:4
     planTables.CellEditCallback(planTables, []);
     bands = findall(app.getFigure(), "Type", "Patch");
-    assert(numel(bands) == 1, "实验计划时间窗在重绘时发生叠加。");
+    assert(isscalar(bands), "实验计划时间窗在重绘时发生叠加。");
     labels = findall(bands.Parent, "Type", "Text");
     if repeat == 1
         patchCount = numel(bands);
@@ -64,4 +77,17 @@ assert(thirdFigure.WindowState ~= "minimized", "Apps页重复启动未恢复现�
 entryController = getappdata(firstFigure, "fUSWorkspaceController");
 delete(entryController);
 clear fUSWorkspaceMatlabApp
+clear preferenceCleanup
 disp("全部测试通过。");
+catch errorInfo
+    clear preferenceCleanup
+    rethrow(errorInfo);
+end
+
+function restorePreference(hadPreference, root)
+if hadPreference
+    setpref("fUSWorkspace", "LastExperimentRoot", root);
+elseif ispref("fUSWorkspace", "LastExperimentRoot")
+    rmpref("fUSWorkspace", "LastExperimentRoot");
+end
+end

@@ -36,12 +36,17 @@ classdef ExperimentPlan
             plan.Label = string(plan.Label);
 
             valid = isfinite(plan.Start_s) & isfinite(plan.End_s) ...
-                & plan.End_s > plan.Start_s & strlength(plan.Label) > 0;
+                & plan.Start_s >= 0 & plan.End_s > plan.Start_s ...
+                & strlength(strtrim(plan.Label)) > 0;
             if ~all(valid)
                 error("fUS:InvalidExperimentPlan", ...
                     "每个实验阶段都需要有效的开始时间、结束时间和名称。");
             end
             plan = sortrows(plan, "Start_s");
+            if height(plan) > 1 && any(plan.Start_s(2:end) < plan.End_s(1:end - 1))
+                error("fUS:OverlappingExperimentPlan", ...
+                    "实验阶段时间不能重叠；相邻阶段可以共用一个结束/开始时间。");
+            end
         end
 
         function phase = phaseAt(plan, seconds)
